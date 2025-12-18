@@ -13,7 +13,7 @@ import type { ITask } from '@/api/types/Task';
 import ObjectID from 'bson-objectid';
 import type { TaskDetail } from '@/services/cacheOperation';
 import { TaskDeletionModal } from '@/modals/TaskDeletionModal';
-import { getSettings, updateProjectGroups } from '@/settings';
+import { getSettings, updateProjectGroups, getFolderMappings, type IFolderMapping } from '@/settings';
 import { FileMap, type ITaskItemRecord } from '@/services/fileMap';
 import log from 'loglevel';
 
@@ -949,6 +949,25 @@ export class SyncMan {
 
 			//TODO: Filtering deleted tasks would take an act of congress. Just warn the user in Readme.
 
+			// Process folder mappings first
+			const folderMappings = getFolderMappings();
+			const processedTaskIds = new Set<string>();
+
+			if (folderMappings && folderMappings.length > 0) {
+				for (const mapping of folderMappings) {
+					const mappedTasks = await this.processFolderMapping(mapping, tasksFromTickTic);
+					mappedTasks.forEach(task => processedTaskIds.add(task.id));
+				}
+
+				// Remove already processed tasks from the main sync flow
+				if (processedTaskIds.size > 0) {
+					tasksFromTickTic = tasksFromTickTic.filter(task => !processedTaskIds.has(task.id));
+					if (getSettings().debugMode) {
+						log.debug(`Folder mappings processed ${processedTaskIds.size} tasks. ${tasksFromTickTic.length} tasks remaining for global sync.`);
+					}
+				}
+			}
+
 			let syncTag: string = getSettings().SyncTag;
 			if (syncTag) {
 				//TODO: In the fullness of time we need to look at Tag Labels not Tag Names.
@@ -1188,6 +1207,88 @@ export class SyncMan {
 		return false;
 	}
 
+	/**
+	 * Process a folder mapping by filtering tasks and syncing them to the mapped file.
+	 * @param mapping The folder mapping configuration
+	 * @param allTasks All tasks from TickTick
+	 * @returns Array of tasks that were processed by this mapping
+	 */
+	private async processFolderMapping(mapping: IFolderMapping, allTasks: ITask[]): Promise<ITask[]> {
+		if (!mapping.tickTickProjectId) {
+			return [];
+		}
+
+		// Filter tasks by project ID
+		let mappedTasks = allTasks.filter(task => task.projectId === mapping.tickTickProjectId);
+
+		// If tag filter is specified, further filter by tag
+		if (mapping.tickTickTag && mapping.tickTickTag.length > 0) {
+			const tagLower = mapping.tickTickTag.toLowerCase();
+			mappedTasks = mappedTasks.filter(task => {
+				if (!task.tags || task.tags.length === 0) return false;
+				return task.tags.some(t => t.toLowerCase() === tagLower);
+			});
+		}
+
+		if (mappedTasks.length === 0) {
+			return [];
+		}
+
+		// Determine target file path
+		const targetPath = mapping.obsidianFolder.endsWith('/')
+			? `${mapping.obsidianFolder}${mapping.syncFilename}`
+			: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+
+		if (getSettings().debugMode) {
+			log.debug(`Folder mapping: syncing ${mappedTasks.length} tasks to ${targetPath}`);
+			log.debug(`  Project: ${mapping.tickTickProjectName} (${mapping.tickTickProjectId})`);
+			if (mapping.tickTickTag) {
+				log.debug(`  Tag filter: ${mapping.tickTickTag}`);
+			}
+		}
+
+		// Check which tasks are new vs updates
+		const tasksInCache = await this.plugin.cacheOperation?.loadTasksFromCache() || [];
+
+		const newTasks = mappedTasks.filter(task => !tasksInCache.some(t => t.id === task.id));
+		const existingTasks = mappedTasks.filter(task => tasksInCache.some(t => t.id === task.id));
+
+		// Process new tasks
+		if (newTasks.length > 0) {
+			newTasks.forEach((task: ITask) => {
+				this.plugin.dateMan?.addDateHolderToTask(task);
+			});
+
+			// Ensure the target file exists and sync new tasks
+			await this.plugin.fileOperation?.synchronizeToVault(newTasks, false);
+
+			if (getSettings().debugMode) {
+				log.debug(`  Added ${newTasks.length} new tasks to ${targetPath}`);
+			}
+		}
+
+		// Process updates for existing tasks
+		if (existingTasks.length > 0) {
+			const tasksToUpdate = existingTasks.filter(tickTask => {
+				const cacheTask = tasksInCache.find(t => t.id === tickTask.id);
+				return cacheTask && new Date(tickTask.modifiedTime) > new Date(cacheTask.modifiedTime);
+			});
+
+			if (tasksToUpdate.length > 0) {
+				tasksToUpdate.forEach((task: ITask) => {
+					this.plugin.dateMan?.addDateHolderToTask(task);
+				});
+
+				await this.plugin.fileOperation?.synchronizeToVault(tasksToUpdate, true);
+
+				if (getSettings().debugMode) {
+					log.debug(`  Updated ${tasksToUpdate.length} tasks in ${targetPath}`);
+				}
+			}
+		}
+
+		return mappedTasks;
+	}
 
 	// Synchronize completed task status to Obsidian file
 

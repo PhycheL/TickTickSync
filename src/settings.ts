@@ -4,6 +4,20 @@ import type { IProjectGroup } from '@/api/types/ProjectGroup';
 import type { FileMetadata } from '@/services/cacheOperation';
 import { settingsStore } from '@/ui/settings/settingsstore';
 
+/**
+ * Represents a mapping between an Obsidian folder and a TickTick project/tag.
+ * Used to sync tasks from a specific TickTick project (optionally filtered by tag)
+ * to a specific file within an Obsidian folder.
+ */
+export interface IFolderMapping {
+	id: string; // Unique ID for the mapping
+	obsidianFolder: string; // Path to the Obsidian folder (e.g., "Projects/MyProject")
+	tickTickProjectId: string; // Target TickTick Project ID
+	tickTickProjectName: string; // Cached project name for UI display
+	tickTickTag: string; // Optional tag filter (empty string means no tag filter)
+	syncFilename: string; // Specific file to sync with (e.g., "Readme.md")
+}
+
 export interface ITickTickSyncSettings {
 
 	baseURL: string;
@@ -41,6 +55,7 @@ export interface ITickTickSyncSettings {
 		projectGroups: IProjectGroup[];
 		tasks: ITask[];
 	};
+	folderMappings: IFolderMapping[];
 	//statistics: any;
 }
 
@@ -72,7 +87,8 @@ export const DEFAULT_SETTINGS: ITickTickSyncSettings = {
 	TickTickTasksData: {
 		projects: [],
 		tasks: []
-	}
+	},
+	folderMappings: []
 
 	//statistics: {}
 };
@@ -135,4 +151,66 @@ export const getDefaultFolder = (): string => {
 	} else {
 		return settings.TickTickTasksFilePath;
 	}
+};
+
+// Folder Mappings helpers
+export const getFolderMappings = (): IFolderMapping[] => {
+	return settings.folderMappings || [];
+};
+
+export const updateFolderMappings = (newMappings: IFolderMapping[]): IFolderMapping[] => {
+	settings.folderMappings = newMappings;
+	return getFolderMappings();
+};
+
+export const addFolderMapping = (mapping: IFolderMapping): IFolderMapping[] => {
+	if (!settings.folderMappings) {
+		settings.folderMappings = [];
+	}
+	settings.folderMappings.push(mapping);
+	return getFolderMappings();
+};
+
+export const removeFolderMapping = (id: string): IFolderMapping[] => {
+	if (!settings.folderMappings) {
+		return [];
+	}
+	settings.folderMappings = settings.folderMappings.filter(m => m.id !== id);
+	return getFolderMappings();
+};
+
+/**
+ * Find a folder mapping that matches the given file path.
+ * Returns the mapping if the filepath starts with the obsidianFolder path and matches the syncFilename.
+ */
+export const findFolderMappingForFilepath = (filepath: string): IFolderMapping | undefined => {
+	if (!settings.folderMappings || !filepath) {
+		return undefined;
+	}
+	for (const mapping of settings.folderMappings) {
+		const expectedPath = mapping.obsidianFolder.endsWith('/')
+			? `${mapping.obsidianFolder}${mapping.syncFilename}`
+			: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+		if (filepath === expectedPath) {
+			return mapping;
+		}
+	}
+	return undefined;
+};
+
+/**
+ * Find all folder mappings that match a given TickTick project ID and optionally a tag.
+ */
+export const findFolderMappingsForProject = (projectId: string, tag?: string): IFolderMapping[] => {
+	if (!settings.folderMappings) {
+		return [];
+	}
+	return settings.folderMappings.filter(mapping => {
+		const projectMatches = mapping.tickTickProjectId === projectId;
+		if (!projectMatches) return false;
+		if (tag && mapping.tickTickTag) {
+			return mapping.tickTickTag.toLowerCase() === tag.toLowerCase();
+		}
+		return true;
+	});
 };

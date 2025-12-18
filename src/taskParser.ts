@@ -1,7 +1,7 @@
 import { type App, Notice } from 'obsidian';
 import type TickTickSync from '@/main';
 import type { ITask, ITaskItem } from '@/api/types/Task';
-import { getSettings } from '@/settings';
+import { getSettings, getFolderMappings, type IFolderMapping } from '@/settings';
 import { sha256 } from 'crypto-hash';
 import type { FileMap, ITaskRecord } from '@/services/fileMap';
 import log from 'loglevel';
@@ -338,12 +338,28 @@ export class TaskParser {
 
 		let projectId = await this.plugin.cacheOperation?.getDefaultProjectIdForFilepath(filepath as string);
 
+		// Check if filepath matches a folder mapping and apply mapping settings
+		const folderMapping = this.findFolderMappingForPath(filepath);
+		if (folderMapping) {
+			// Use the project ID from the folder mapping
+			projectId = folderMapping.tickTickProjectId;
+
+			// Add the mapping's tag to the tags array if specified and not already present
+			if (folderMapping.tickTickTag) {
+				const mappingTag = folderMapping.tickTickTag.toLowerCase();
+				const hasTag = tags.some(t => t.toLowerCase() === mappingTag);
+				if (!hasTag) {
+					tags.push(folderMapping.tickTickTag);
+				}
+			}
+		}
+
 		if (hasParent) {
 			if (parentTaskObject) {
 				projectId = parentTaskObject.projectId;
 			}
-		} else {
-			//Check if we need to add this to a specific project by tag.
+		} else if (!folderMapping) {
+			//Check if we need to add this to a specific project by tag (only if no folder mapping).
 			if (tags) {
 				for (const tag of tags) {
 					let labelName = tag.replace(/#/g, '');
@@ -928,5 +944,39 @@ export class TaskParser {
 		return resultLine;
 	}
 
+	/**
+	 * Find a folder mapping that matches the given file path.
+	 * Checks both exact match (folder/filename) and folder containment.
+	 * @param filepath The file path to check
+	 * @returns The matching folder mapping or undefined
+	 */
+	private findFolderMappingForPath(filepath: string): IFolderMapping | undefined {
+		if (!filepath) return undefined;
+
+		const folderMappings = getFolderMappings();
+		if (!folderMappings || folderMappings.length === 0) return undefined;
+
+		for (const mapping of folderMappings) {
+			// Check for exact match (folder + syncFilename)
+			const expectedPath = mapping.obsidianFolder.endsWith('/')
+				? `${mapping.obsidianFolder}${mapping.syncFilename}`
+				: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+
+			if (filepath === expectedPath) {
+				return mapping;
+			}
+
+			// Check if file is within the mapped folder
+			const folderPath = mapping.obsidianFolder.endsWith('/')
+				? mapping.obsidianFolder
+				: `${mapping.obsidianFolder}/`;
+
+			if (filepath.startsWith(folderPath)) {
+				return mapping;
+			}
+		}
+
+		return undefined;
+	}
 
 }

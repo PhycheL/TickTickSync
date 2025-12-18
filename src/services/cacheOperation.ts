@@ -3,7 +3,7 @@ import TickTickSync from '@/main';
 import type { ITask } from '@/api/types/Task';
 import type { IProject } from '@/api/types//Project';
 import { FoundDuplicatesModal } from '@/modals/FoundDuplicatesModal';
-import { getProjects, getSettings, getTasks, updateProjects, updateSettings, updateTasks, getDefaultFolder } from '@/settings';
+import { getProjects, getSettings, getTasks, updateProjects, updateSettings, updateTasks, getDefaultFolder, findFolderMappingForFilepath, getFolderMappings } from '@/settings';
 //Logging
 import log from '@/utils/logger';
 import { FileMap } from '@/services/fileMap';
@@ -257,6 +257,24 @@ export class CacheOperation {
 	}
 
 	async getDefaultProjectIdForFilepath(filepath: string) {
+		// First, check if filepath matches a folder mapping
+		const folderMapping = findFolderMappingForFilepath(filepath);
+		if (folderMapping && folderMapping.tickTickProjectId) {
+			return folderMapping.tickTickProjectId;
+		}
+
+		// Check for folder-based mapping (file is within a mapped folder)
+		const folderMappings = getFolderMappings();
+		for (const mapping of folderMappings) {
+			const folderPath = mapping.obsidianFolder.endsWith('/')
+				? mapping.obsidianFolder
+				: `${mapping.obsidianFolder}/`;
+			if (filepath.startsWith(folderPath)) {
+				return mapping.tickTickProjectId;
+			}
+		}
+
+		// Fall back to file metadata
 		const metadatas = getSettings().fileMetadata;
 		if (!metadatas[filepath] || !metadatas[filepath].defaultProjectId) {
 			let defaultProjectId = getSettings().defaultProjectId;
@@ -283,8 +301,30 @@ export class CacheOperation {
 	}
 
 
-	async getFilepathForProjectId(projectId: string) {
+	async getFilepathForProjectId(projectId: string, tag?: string) {
 		if ((projectId) ||  (projectId !== '')) {
+			// First, check folder mappings for this project
+			const folderMappings = getFolderMappings();
+			for (const mapping of folderMappings) {
+				if (mapping.tickTickProjectId === projectId) {
+					// If tag filter is specified in mapping, check if it matches
+					if (mapping.tickTickTag && tag) {
+						if (mapping.tickTickTag.toLowerCase() === tag.toLowerCase()) {
+							const targetPath = mapping.obsidianFolder.endsWith('/')
+								? `${mapping.obsidianFolder}${mapping.syncFilename}`
+								: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+							return targetPath;
+						}
+					} else if (!mapping.tickTickTag) {
+						// Mapping has no tag filter, use it
+						const targetPath = mapping.obsidianFolder.endsWith('/')
+							? `${mapping.obsidianFolder}${mapping.syncFilename}`
+							: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+						return targetPath;
+					}
+				}
+			}
+
 			const metadatas = getSettings().fileMetadata;
 
 			//If this project is set as a default for a file, return that file.
