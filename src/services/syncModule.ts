@@ -953,23 +953,34 @@ export class SyncMan {
 			const folderMappings = getFolderMappings();
 			
 			if (!folderMappings || folderMappings.length === 0) {
-				if (getSettings().debugMode) {
-					log.debug('No folder mappings configured. Please configure folder mappings in settings.');
-				}
-				// No folder mappings configured, nothing to sync
+				new Notice('No folder mappings configured. Please configure folder mappings in Sync Control settings.');
+				log.warn('No folder mappings configured. Please configure folder mappings in settings.');
 				return false;
 			}
+
+			log.debug(`Found ${folderMappings.length} folder mapping(s). Processing...`);
+			log.debug(`Total tasks from TickTick: ${tasksFromTickTic?.length || 0}`);
 
 			const processedTaskIds = new Set<string>();
 
 			for (const mapping of folderMappings) {
+				log.debug(`Processing mapping: folder=${mapping.obsidianFolder}, project=${mapping.tickTickProjectName} (${mapping.tickTickProjectId}), tag=${mapping.tickTickTag || 'none'}, file=${mapping.syncFilename}`);
 				const mappedTasks = await this.processFolderMapping(mapping, tasksFromTickTic);
 				mappedTasks.forEach(task => processedTaskIds.add(task.id));
+				log.debug(`  Mapping matched ${mappedTasks.length} tasks`);
 			}
 
 			// Only process tasks that matched folder mappings
 			tasksFromTickTic = tasksFromTickTic.filter(task => processedTaskIds.has(task.id));
 
+			if (processedTaskIds.size === 0) {
+				new Notice(`No tasks matched the folder mapping criteria. Check your project/tag settings.`);
+				log.warn('No tasks matched any folder mapping criteria.');
+			} else {
+				new Notice(`Synced ${processedTaskIds.size} tasks from folder mappings.`);
+			}
+
+			log.debug(`Folder mappings processed ${processedTaskIds.size} tasks.`);
 			if (getSettings().debugMode) {
 				log.debug(`Folder mappings processed ${processedTaskIds.size} tasks.`);
 			}
