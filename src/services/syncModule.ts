@@ -1207,8 +1207,8 @@ export class SyncMan {
 				this.plugin.dateMan?.addDateHolderToTask(task);
 			});
 
-			// Ensure the target file exists and sync new tasks
-			await this.plugin.fileOperation?.synchronizeToVault(newTasks, false);
+			// Sync new tasks directly to the target file from folder mapping
+			await this.plugin.fileOperation?.synchronizeToFile(targetPath, newTasks, false);
 
 			if (getSettings().debugMode) {
 				log.debug(`  Added ${newTasks.length} new tasks to ${targetPath}`);
@@ -1227,7 +1227,8 @@ export class SyncMan {
 					this.plugin.dateMan?.addDateHolderToTask(task);
 				});
 
-				await this.plugin.fileOperation?.synchronizeToVault(tasksToUpdate, true);
+				// Sync updated tasks directly to the target file from folder mapping
+				await this.plugin.fileOperation?.synchronizeToFile(targetPath, tasksToUpdate, true);
 
 				if (getSettings().debugMode) {
 					log.debug(`  Updated ${tasksToUpdate.length} tasks in ${targetPath}`);

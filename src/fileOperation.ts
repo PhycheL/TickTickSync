@@ -411,7 +411,7 @@ export class FileOperation {
 		}
 	}
 
-	private async synchronizeToFile(taskFile: string, projectTasks: ITask[], bUpdating: boolean) {
+	async synchronizeToFile(taskFile: string, projectTasks: ITask[], bUpdating: boolean) {
 		let file;
 		let result;
 		if (taskFile) {
