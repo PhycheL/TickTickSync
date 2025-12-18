@@ -366,11 +366,31 @@ export class TickTickService {
 			return;
 		}
 		let newFilesToSync = filesToSync;
-		//If one project is to be synced, don't look at it's other files.
-
-		if (getSettings().SyncProject) {
-			newFilesToSync = Object.fromEntries(Object.entries(filesToSync).filter(([key, value]) =>
-				value.defaultProjectId === getSettings().SyncProject));
+		
+		// Filter files based on folder mappings
+		const folderMappings = getSettings().folderMappings;
+		if (folderMappings && folderMappings.length > 0) {
+			// Only sync files that are within mapped folders
+			newFilesToSync = Object.fromEntries(Object.entries(filesToSync).filter(([filepath, value]) => {
+				for (const mapping of folderMappings) {
+					const expectedPath = mapping.obsidianFolder.endsWith('/')
+						? `${mapping.obsidianFolder}${mapping.syncFilename}`
+						: `${mapping.obsidianFolder}/${mapping.syncFilename}`;
+					
+					if (filepath === expectedPath) {
+						return true;
+					}
+					
+					// Also check if file is within the mapped folder
+					const folderPath = mapping.obsidianFolder.endsWith('/')
+						? mapping.obsidianFolder
+						: `${mapping.obsidianFolder}/`;
+					if (filepath.startsWith(folderPath)) {
+						return true;
+					}
+				}
+				return false;
+			}));
 		}
 
 		//Check for duplicates before we do anything

@@ -949,81 +949,29 @@ export class SyncMan {
 
 			//TODO: Filtering deleted tasks would take an act of congress. Just warn the user in Readme.
 
-			// Process folder mappings first
+			// Process folder mappings - this is the only sync method now
 			const folderMappings = getFolderMappings();
+			
+			if (!folderMappings || folderMappings.length === 0) {
+				if (getSettings().debugMode) {
+					log.debug('No folder mappings configured. Please configure folder mappings in settings.');
+				}
+				// No folder mappings configured, nothing to sync
+				return false;
+			}
+
 			const processedTaskIds = new Set<string>();
 
-			if (folderMappings && folderMappings.length > 0) {
-				for (const mapping of folderMappings) {
-					const mappedTasks = await this.processFolderMapping(mapping, tasksFromTickTic);
-					mappedTasks.forEach(task => processedTaskIds.add(task.id));
-				}
-
-				// Remove already processed tasks from the main sync flow
-				if (processedTaskIds.size > 0) {
-					tasksFromTickTic = tasksFromTickTic.filter(task => !processedTaskIds.has(task.id));
-					if (getSettings().debugMode) {
-						log.debug(`Folder mappings processed ${processedTaskIds.size} tasks. ${tasksFromTickTic.length} tasks remaining for global sync.`);
-					}
-				}
+			for (const mapping of folderMappings) {
+				const mappedTasks = await this.processFolderMapping(mapping, tasksFromTickTic);
+				mappedTasks.forEach(task => processedTaskIds.add(task.id));
 			}
 
-			let syncTag: string = getSettings().SyncTag;
-			if (syncTag) {
-				//TODO: In the fullness of time we need to look at Tag Labels not Tag Names.
-				//because TickTick only stores lowercase tags.;
-				syncTag = syncTag.toLowerCase();
-				if (syncTag.includes('/')) {
-					syncTag = syncTag.replace(/\//g, '-');
-				}
-			}
-			//Both Tag and Project limiting present
-			if (syncTag && getSettings().SyncProject) {
+			// Only process tasks that matched folder mappings
+			tasksFromTickTic = tasksFromTickTic.filter(task => processedTaskIds.has(task.id));
 
-				//Check for AND/OR presences to determine processing.
-				const AndOrIndicator = getSettings().tagAndOr;
-
-				// AND selected. They want only tasks with the tag in the project.
-				if (AndOrIndicator == 1) {
-					let tasksWithTag;
-					tasksWithTag = tasksFromTickTic.filter(task => {
-						tasksWithTag = task.tags?.includes(syncTag); //because TickTick only stores lowercase tags.
-						return tasksWithTag;
-					});
-					if (tasksWithTag) {
-						tasksFromTickTic = tasksWithTag.filter(task => {
-							return task.projectId === getSettings().SyncProject;
-						});
-					}
-				} else {
-					//OR they want tasks with either the tag or the project
-					let tasksWithTag = tasksFromTickTic.filter(task => {
-						return task.tags?.includes(syncTag);
-					});
-					let tasksInProject = tasksFromTickTic.filter(task => {
-						return task.projectId === getSettings().SyncProject;
-					});
-
-					tasksFromTickTic = [...tasksWithTag, ...tasksInProject].reduce((acc, current) => {
-						const existing = acc.find(item => item.id === current.id);
-						if (existing) {
-							Object.assign(existing, current);
-						} else {
-							acc.push(current);
-						}
-						return acc;
-					}, []);
-				}
-			} else {
-				//Either tag or project is present
-				//Will process whichever one is present.
-				if (syncTag || getSettings().SyncProject) {
-					tasksFromTickTic = tasksFromTickTic.filter(task => {
-						const hasTag = task.tags?.includes(syncTag);
-						const hasProjectId = task.projectId === getSettings().SyncProject;
-						return hasTag || hasProjectId;
-					});
-				}
+			if (getSettings().debugMode) {
+				log.debug(`Folder mappings processed ${processedTaskIds.size} tasks.`);
 			}
 
 			// this.dumpArray('== remote:', tasksFromTickTic);
