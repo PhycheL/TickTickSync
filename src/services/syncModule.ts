@@ -958,16 +958,26 @@ export class SyncMan {
 				return false;
 			}
 
-			log.debug(`Found ${folderMappings.length} folder mapping(s). Processing...`);
-			log.debug(`Total tasks from TickTick: ${tasksFromTickTic?.length || 0}`);
+			console.log(`[TickTickSync] Found ${folderMappings.length} folder mapping(s). Processing...`);
+			console.log(`[TickTickSync] Total tasks from TickTick: ${tasksFromTickTic?.length || 0}`);
+			
+			// Log unique project IDs from tasks for debugging
+			const uniqueProjectIds = [...new Set(tasksFromTickTic.map(t => t.projectId))];
+			console.log(`[TickTickSync] Unique projectIds in tasks:`, uniqueProjectIds);
 
 			const processedTaskIds = new Set<string>();
 
 			for (const mapping of folderMappings) {
-				log.debug(`Processing mapping: folder=${mapping.obsidianFolder}, project=${mapping.tickTickProjectName} (${mapping.tickTickProjectId}), tag=${mapping.tickTickTag || 'none'}, file=${mapping.syncFilename}`);
+				console.log(`[TickTickSync] Processing mapping:`, {
+					folder: mapping.obsidianFolder,
+					projectName: mapping.tickTickProjectName,
+					projectId: mapping.tickTickProjectId,
+					tag: mapping.tickTickTag || 'none',
+					file: mapping.syncFilename
+				});
 				const mappedTasks = await this.processFolderMapping(mapping, tasksFromTickTic);
 				mappedTasks.forEach(task => processedTaskIds.add(task.id));
-				log.debug(`  Mapping matched ${mappedTasks.length} tasks`);
+				console.log(`[TickTickSync]   Mapping matched ${mappedTasks.length} tasks`);
 			}
 
 			// Only process tasks that matched folder mappings
