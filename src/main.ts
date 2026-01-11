@@ -158,7 +158,8 @@ export default class TickTickSync extends Plugin {
 		//Create a backup folder to back up TickTick data
 		try {
 			//Back up all data before each startup
-			if (!getSettings().skipBackup) {
+			// Backup feature disabled per user request.
+			if (false && !getSettings().skipBackup) {
 				this.service.backup();
 			}
 		} catch (error) {
@@ -166,7 +167,7 @@ export default class TickTickSync extends Plugin {
 			new Notice(`error creating user data folder`);
 			return false;
 		}
-		new Notice('TickTickSync loaded successfully.' + getSettings().skipBackup ? ' Skipping backup.' : 'TickTick data has been backed up.');
+		new Notice('TickTickSync loaded successfully.');
 		return true;
 	}
 

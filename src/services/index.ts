@@ -58,7 +58,9 @@ export class TickTickService {
 	}
 
 	backup() {
-		this.tickTickSync?.backupTickTickAllResources();
+		// Backup feature disabled per user request.
+		return;
+		// this.tickTickSync?.backupTickTickAllResources();
 	}
 
 	//MB can be static

@@ -280,7 +280,11 @@ export class Tick {
 			while (retry > 0) {
 				const checkpointDate = new Date(this._checkpoint);
 				log.debug('Get All Resources', this._checkpoint? "as of: " + checkpointDate.toISOString() : 'from the beginning of time. ');
+				log.info('API URL: ', this.apiUrl);
+				log.info('All Tasks End Point: ', allTasksEndPoint);
+				log.info('Checkpoint: ', this._checkpoint);
 				const url = `${this.apiUrl}/${allTasksEndPoint}` + this._checkpoint;
+				log.info('Get All Resources URL: ', url);
 				const response = await this.makeRequest('Get All Resources', url, 'GET', undefined);
 				if (response) {
 					return response;

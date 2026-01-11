@@ -1278,6 +1278,9 @@ export class SyncMan {
 	}
 
 	async backupTickTickAllResources() {
+		// Backup feature disabled per user request.
+		// Keep implementation for reference, but do not execute.
+		return;
 		try {
 			// log.debug("backing up.")
 			// if (this.plugin.tickTickSyncAPI) {

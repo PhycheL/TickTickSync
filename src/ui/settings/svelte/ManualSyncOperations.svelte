@@ -94,56 +94,59 @@
 			</div>
 		</div>
 
-		<div class="setting-item">
-			<div class="setting-item-info">
-				<div class="setting-item-name">Backup TickTick data</div>
-				<div class="setting-item-description">
-					Click to backup TickTick data. The backed-up files will be stored in the selected directory of the
-					Obsidian vault
+		{#if false}
+			<!-- Backup UI disabled per user request -->
+			<div class="setting-item">
+				<div class="setting-item-info">
+					<div class="setting-item-name">Backup TickTick data</div>
+					<div class="setting-item-description">
+						Click to backup TickTick data. The backed-up files will be stored in the selected directory of the
+						Obsidian vault
+					</div>
 				</div>
-			</div>
-			<div class="setting-item-control">
-				<button
-					class="mod-cta"
-					on:click={() => plugin.service.backup()}>
-					Backup
-				</button>
-			</div>
-		</div>
-
-		<div class="setting-item">
-			<div class="setting-item-info">
-				<div class="setting-item-name">Skip backup</div>
-				<div class="setting-item-description">Skip backup on startup</div>
-			</div>
-			<div class="setting-item-control">
-				<label class="toggle-switch">
-					<input
-						type="checkbox"
-						checked={getSettings().skipBackup}
-						on:change={async (e) => {
-              updateSettings({ skipBackup: e.target.checked });
-              await plugin.saveSettings();
-            }}
-					/>
-					<span class="slider"></span>
-				</label>
-
-			</div>
-		</div>
-		<div class="setting-item">
-			<div class="setting-item-info">
-				<div class="setting-item-name">Backup folder</div>
-				<div class="setting-item-description">Choose the folder to store the backup files.</div>
-			</div>
-			<div class="setting-item-control flex-container">
-				<div
-					class="modal-form remove-padding remove-border fix-suggest"
-					use:searchFolder
-				>
+				<div class="setting-item-control">
+					<button
+						class="mod-cta"
+						on:click={() => plugin.service.backup()}>
+						Backup
+					</button>
 				</div>
 			</div>
 
-		</div>
+			<div class="setting-item">
+				<div class="setting-item-info">
+					<div class="setting-item-name">Skip backup</div>
+					<div class="setting-item-description">Skip backup on startup</div>
+				</div>
+				<div class="setting-item-control">
+					<label class="toggle-switch">
+						<input
+							type="checkbox"
+							checked={getSettings().skipBackup}
+							on:change={async (e) => {
+	              updateSettings({ skipBackup: e.target.checked });
+	              await plugin.saveSettings();
+	            }}
+						/>
+						<span class="slider"></span>
+					</label>
+
+				</div>
+			</div>
+			<div class="setting-item">
+				<div class="setting-item-info">
+					<div class="setting-item-name">Backup folder</div>
+					<div class="setting-item-description">Choose the folder to store the backup files.</div>
+				</div>
+				<div class="setting-item-control flex-container">
+					<div
+						class="modal-form remove-padding remove-border fix-suggest"
+						use:searchFolder
+					>
+					</div>
+				</div>
+
+			</div>
+		{/if}
 	{/if}
 </div>
